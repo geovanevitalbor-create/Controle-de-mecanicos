@@ -477,9 +477,21 @@
         </div>
 
         <div class="auth-pane" id="authpane-signup">
-          <div class="auth-step-hint">Toda conta nova entra como <b>processista</b> (abre chamado, acompanha). Um responsável promove você a mecânico ou responsável depois, se for o caso.</div>
           <div class="field"><label>Nome completo *</label><input type="text" id="sgNome" autocomplete="name"></div>
           <div class="field"><label>E-mail *</label><input type="email" id="sgEmail" autocomplete="email" inputmode="email"></div>
+          <div class="field">
+            <label>Você é *</label>
+            <select id="sgPapel">
+              <option value="processista">Processista (abre solicitações)</option>
+              <option value="mecanico">Mecânico</option>
+              <option value="responsavel">Responsável</option>
+            </select>
+          </div>
+          <div class="field" id="sgCodigoField" style="display:none;">
+            <label>Código de responsável *</label>
+            <input type="text" id="sgCodigo" autocomplete="off">
+            <div class="field-hint">Peça ao administrador do sistema. Sem ele, não é possível criar conta de responsável.</div>
+          </div>
           <div class="field"><label>Senha (mínimo 8 caracteres) *</label><input type="password" id="sgSenha" autocomplete="new-password"></div>
           <div class="field"><label>Repita a senha *</label><input type="password" id="sgSenha2" autocomplete="new-password"></div>
           <button class="btn btn-primary btn-block" id="btnCriarConta">Criar conta</button>
@@ -1338,25 +1350,38 @@
     // Cadastro NÃO manda papel nenhum — nasce processista, ponto. O
     // handle_new_user() do banco garante isso independente do que o front
     // mande, mas nem mandamos, pra ficar óbvio na leitura do código.
+    document.getElementById('sgPapel').addEventListener('change', function(e){
+      document.getElementById('sgCodigoField').style.display = e.target.value === 'responsavel' ? 'block' : 'none';
+    });
+
     document.getElementById('btnCriarConta').addEventListener('click', function(){
       withButtonGuard(this, 'Criando...', async function(){
         const nome = document.getElementById('sgNome').value.trim();
         const email = document.getElementById('sgEmail').value.trim();
+        const papel = document.getElementById('sgPapel').value;
+        const codigo = document.getElementById('sgCodigo').value;
         const senha = document.getElementById('sgSenha').value;
         const senha2 = document.getElementById('sgSenha2').value;
         if(!nome){ showToast('Informe seu nome.', 'err'); return; }
         if(!email){ showToast('Informe seu e-mail.', 'err'); return; }
+        if(papel === 'responsavel' && !codigo.trim()){ showToast('Informe o código de responsável.', 'err'); return; }
         if(senha.length < 8){ showToast('A senha precisa ter pelo menos 8 caracteres.', 'err'); return; }
         if(senha !== senha2){ showToast('As senhas não são iguais.', 'err'); return; }
 
+        // papel e codigo_responsavel vão como metadata pro trigger handle_new_user()
+        // no banco, que é quem de fato decide o papel e confere o código — o valor
+        // do código nunca fica escrito neste arquivo, só o que a pessoa digitou.
         const { data, error } = await sb.auth.signUp({
-          email: email, password: senha, options: { data: { nome: nome } }
+          email: email, password: senha,
+          options: { data: { nome: nome, papel: papel, codigo_responsavel: codigo } }
         });
         if(error){
           showToast(error.message.indexOf('already') !== -1 ? 'Já existe uma conta com este e-mail.' : error.message, 'err');
           return;
         }
-        ['sgNome','sgEmail','sgSenha','sgSenha2'].forEach(function(id){ document.getElementById(id).value = ''; });
+        ['sgNome','sgEmail','sgSenha','sgSenha2','sgCodigo'].forEach(function(id){ document.getElementById(id).value = ''; });
+        document.getElementById('sgPapel').value = 'processista';
+        document.getElementById('sgCodigoField').style.display = 'none';
 
         if(data.session){
           // "Confirmar e-mail" está desligado no projeto — sessão já vem ativa.
