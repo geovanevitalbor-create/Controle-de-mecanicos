@@ -408,15 +408,27 @@
     .overlay.show{display:flex;}
     .modal{ background:var(--surface); border:1px solid var(--border); border-radius:8px; width:100%; max-width:420px; padding:18px; max-height:90vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
     .modal h3{font-family:var(--disp); text-transform:uppercase; letter-spacing:.5px; margin:0 0 12px; font-size:16px;}
-    .alerta-modal{ text-align:center; border-top:4px solid var(--status-aberto); }
-    .alerta-modal h3{ text-align:center; font-size:19px; }
-    .alerta-modal-icon{
-      width:60px; height:60px; border-radius:50%; margin:4px auto 14px;
-      background:rgba(77,166,255,0.14); color:var(--status-aberto);
-      display:flex; align-items:center; justify-content:center;
+    #modalNovoChamado.overlay.show{ background:rgba(30,4,4,0.78); }
+    .alerta-modal{
+      text-align:center; border-top:4px solid var(--danger); max-height:none; overflow-y:visible;
+      box-shadow:0 0 0 1px rgba(220,38,38,0.25), 0 20px 60px -12px rgba(220,38,38,0.35);
     }
-    .alerta-modal-icon svg{ width:30px; height:30px; }
-    .alerta-modal #novoChamadoBody{ font-size:14.5px; color:var(--text); line-height:1.5; }
+    .alerta-modal h3{ text-align:center; font-size:20px; color:var(--danger); letter-spacing:.6px; }
+    .alerta-modal-icon{
+      width:64px; height:64px; border-radius:50%; margin:6px auto 16px;
+      background:rgba(220,38,38,0.16); color:var(--danger);
+      display:flex; align-items:center; justify-content:center;
+      animation: alertaPulso 1.6s ease-in-out infinite;
+    }
+    @keyframes alertaPulso{
+      0%, 100% { box-shadow:0 0 0 0 rgba(220,38,38,0.45); }
+      50%      { box-shadow:0 0 0 14px rgba(220,38,38,0); }
+    }
+    .alerta-modal-icon svg{ width:32px; height:32px; }
+    .alerta-modal #novoChamadoBody{ font-size:15px; color:var(--text); line-height:1.5; }
+    .alerta-modal #novoChamadoBody b{ color:var(--danger); }
+    #btnVisualizarNovoChamado{ background:var(--danger); color:#fff; box-shadow:0 0 22px -6px var(--danger); }
+    #btnVisualizarNovoChamado:hover{ box-shadow:0 0 30px -4px var(--danger); }
     .field-row{ display:flex; gap:10px; }
     .field-row .field{ flex:1; min-width:0; }
     @media (max-width:420px){ .field-row{ flex-direction:column; } .field-row .field{ max-width:none !important; } }
@@ -1070,8 +1082,15 @@
       t.className = 'toast show ' + (kind||'');
       setTimeout(function(){ t.className = 'toast'; }, ms || 3200);
     }
-    function openModal(id){ document.getElementById(id).classList.add('show'); }
-    function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+    function openModal(id){
+      document.getElementById(id).classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal(id){
+      document.getElementById(id).classList.remove('show');
+      // Só libera o scroll do fundo se não sobrou nenhum outro modal aberto.
+      if(!document.querySelector('.overlay.show')) document.body.style.overflow = '';
+    }
     window.closeModal = closeModal;
 
     function elapsedMinutes(iso){ if(!iso) return 0; return (Date.now() - new Date(iso).getTime()) / 60000; }
