@@ -3003,7 +3003,7 @@
         const novos = ticketsAtuais.filter(function(t){
           return t.Status === 'Aberto' && !knownTicketIds.has(t.ID);
         });
-        if(novos.length && ['responsavel','mecanico'].indexOf(meuPerfil.papel) !== -1){
+        if(novos.length && meuPerfil.papel === 'mecanico'){
           alertarNovosChamados_(novos);
         }
       }
