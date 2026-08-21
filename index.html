@@ -355,6 +355,7 @@
     .icon-btn{background:transparent; border:1px solid var(--border); padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer; color:var(--text); white-space:nowrap;}
     .icon-btn:hover{border-color:var(--brand);}
     .low-stock{color:var(--danger); font-weight:700;}
+    .admin-table tr.tr-reincidente td{background:rgba(220,38,38,0.08); color:var(--danger); font-weight:600;}
     .stock-adjust{ display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .stock-adjust-btn{
       width:28px; height:28px; border-radius:50%; border:1px solid var(--border); background:var(--surface-2);
@@ -613,6 +614,7 @@
             <option value="Alta">Alta</option>
             <option value="Crítica">Crítica</option>
           </select>
+          <div class="field-hint" id="fPrioridadeHint"></div>
         </div>
         <div class="field"><label>Descrição do problema *</label><textarea id="fNotaAbertura" placeholder="O que está acontecendo com a máquina?"></textarea></div>
         <div class="field">
@@ -664,27 +666,9 @@
         </div>
       </div>
 
-      <div class="dash-cols">
-        <div class="panel">
-          <h2>Chamados Mais Urgentes</h2>
-          <div class="simple-list" id="urgentList"></div>
-        </div>
-        <div class="panel">
-          <h2>Estoque Abaixo do Mínimo</h2>
-          <div class="simple-list" id="lowStockList"></div>
-          <div class="perfil-note">Quando aparece "N chamado(s) parado(s)", essa peça não é só um número de estoque baixo — é máquina parada. Priorize a compra por aí.</div>
-        </div>
-      </div>
-
-      <h2 class="section-title" style="margin-top:24px;">Peças Usadas — Estoque</h2>
       <div class="panel">
-        <div class="table-scroll">
-          <table class="admin-table">
-            <thead><tr><th>Peça</th><th>Cadastrada</th><th>Usadas</th><th>Saldo</th><th>Parados</th><th>Ajustar</th></tr></thead>
-            <tbody id="pecasUsadasTbody"></tbody>
-          </table>
-        </div>
-        <div class="perfil-note">"Cadastrada" é o total que já passou pelo estoque (saldo atual + tudo que já foi usado). "Usadas" soma todo consumo registrado. "Parados" são chamados travados esperando esta peça. Use +/- e clique em "Salvar" — só nesse momento o movimento é registrado.</div>
+        <h2>Chamados Mais Urgentes</h2>
+        <div class="simple-list" id="urgentList"></div>
       </div>
 
       <h2 class="section-title" style="margin-top:24px;">Histórico Completo — todos os chamados (clique para ver detalhes)</h2>
@@ -699,10 +683,10 @@
       <h2 class="section-title" style="margin-top:8px;">Desempenho dos Mecânicos</h2>
       <div class="panel">
         <div id="mecanicosDesempenho"></div>
-        <div class="perfil-note">O tempo de reparo aqui <b>já desconta</b> o tempo em que o chamado ficou aguardando componente — não faz sentido cobrar do mecânico uma peça que ele não tinha. Ainda assim, chamados Críticos/Altos naturalmente levam mais tempo que Baixos: compare perfis parecidos de chamado, não o número isolado.</div>
+        <div class="perfil-note">O tempo de reparo aqui <b>já desconta</b> o tempo em que o chamado ficou pausado — não faz sentido cobrar do mecânico um motivo de pausa que não dependia dele. Ainda assim, chamados Críticos/Altos naturalmente levam mais tempo que Baixos: compare perfis parecidos de chamado, não o número isolado.</div>
       </div>
 
-      <h2 class="section-title" style="margin-top:24px;">MTBF e MTTR por Máquina</h2>
+      <h2 class="section-title" style="margin-top:24px;">Reincidência — MTBF e MTTR por Máquina</h2>
       <div class="panel">
         <div class="table-scroll">
           <table class="admin-table">
@@ -711,7 +695,8 @@
           </table>
         </div>
         <div class="perfil-note">
-          <b>MTTR</b> (Tempo Médio de Reparo): quanto tempo, em média, a manutenção leva pra consertar essa máquina — sem contar espera por peça.
+          Já ordenado por quem mais chama manutenção. <b>Linha destacada em vermelho</b> = 3 ou mais chamados concluídos, sinal de máquina crônica, vale investigar causa raiz em vez de só consertar de novo.<br>
+          <b>MTTR</b> (Tempo Médio de Reparo): quanto tempo, em média, a manutenção leva pra consertar essa máquina — sem contar tempo em pausa.
           <b>MTBF</b> (Tempo Médio Entre Falhas): quanto tempo, em média, a máquina roda sem quebrar de novo — do fim de um conserto até o início do próximo chamado.
           MTBF só aparece com 2 ou mais chamados concluídos na mesma máquina; com 1 só ainda não existe "intervalo" pra medir.
         </div>
@@ -727,7 +712,7 @@
 
       <div class="chart-card">
         <h3>Parada por Máquina — decomposta (chamados concluídos no período)</h3>
-        <p class="chart-note">Empilhado: fila (esperando mecânico), reparo (mão na máquina) e espera por peça. Se a barra amarela domina, o problema é compras/estoque, não manutenção.</p>
+        <p class="chart-note">Empilhado: fila (esperando mecânico), reparo (mão na máquina) e pausa (aguardando peça, aprovação, outro técnico etc. — motivo registrado em cada chamado). Se a barra amarela domina, o problema não é o reparo em si, é o que trava antes dele.</p>
         <canvas id="chartDowntime"></canvas>
       </div>
 
@@ -749,7 +734,6 @@
       <label>Mostrando cadastro de</label>
       <select id="cadastroTabSelect">
         <option value="maquinas">Máquinas</option>
-        <option value="produtos">Produtos / Estoque</option>
         <option value="categorias">Categorias de Problema</option>
         <option value="componentes">Componentes</option>
         <option value="fabricas">Fábricas</option>
@@ -766,19 +750,6 @@
           <table class="admin-table">
             <thead><tr><th>Número</th><th>Descrição</th><th>Setor</th><th></th></tr></thead>
             <tbody id="machinesTbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="cadastro-panel" id="cadastro-panel-produtos" style="display:none;">
-      <div class="panel">
-        <h2>Produtos / Estoque</h2>
-        <button class="btn btn-primary" id="addProductBtn">+ Adicionar Produto</button>
-        <div class="table-scroll">
-          <table class="admin-table">
-            <thead><tr><th>Código</th><th>Nome</th><th>Qtd</th><th>Mín.</th><th>Un.</th><th></th></tr></thead>
-            <tbody id="productsTbody"></tbody>
           </table>
         </div>
       </div>
@@ -851,10 +822,19 @@
         <label>Mecânico responsável *</label>
         <select id="fMecanico"></select>
       </div>
-      <div class="field" id="aguardandoProdutoField" style="display:none;">
-        <label>Qual peça está faltando? *</label>
-        <select id="fProdutoAguardado"></select>
-        <div class="field-hint">Isto trava o chamado no relatório de compras, não só na tela.</div>
+      <div class="field" id="motivoPausaField" style="display:none;">
+        <label>Motivo da pausa *</label>
+        <select id="fMotivoPausa">
+          <option value="Aguardando peça/componente">Aguardando peça/componente</option>
+          <option value="Aguardando aprovação">Aguardando aprovação</option>
+          <option value="Aguardando outro técnico">Aguardando outro técnico</option>
+          <option value="Máquina indisponível para intervenção">Máquina indisponível para intervenção</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </div>
+      <div class="field" id="motivoPausaOutroField" style="display:none;">
+        <label>Qual motivo? *</label>
+        <input type="text" id="fMotivoPausaOutro" placeholder="Descreva o motivo da pausa">
       </div>
       <div class="field" id="notaField">
         <label id="notaLabel">Nota</label>
@@ -872,10 +852,6 @@
           <img id="tFotoPreview" src="" alt="Prévia">
           <button type="button" class="icon-btn" id="tFotoRemover">Remover foto</button>
         </div>
-      </div>
-      <div class="field-row" id="consumoRow" style="display:none;">
-        <div class="field"><label>Peça utilizada (opcional)</label><select id="fProdutoUsado"><option value="">— nenhuma —</option></select></div>
-        <div class="field" style="max-width:110px;"><label>Qtd.</label><input type="number" id="fQuantidadeUsada" min="0" step="1" placeholder="0"></div>
       </div>
       <div class="field-row" id="fConcluirCategoriaRow" style="display:none;">
         <div class="field"><label>Categoria *</label><select id="fConcluirCategoria"></select></div>
@@ -905,23 +881,6 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('modalMachine')">Cancelar</button>
         <button class="btn btn-primary" id="submitMachine">Salvar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay" id="modalProduct">
-    <div class="modal">
-      <h3 id="productModalTitle">Novo Produto</h3>
-      <input type="hidden" id="pId">
-      <div class="field"><label>Código</label><input type="text" id="pCodigo"></div>
-      <div class="field"><label>Nome</label><input type="text" id="pNome"></div>
-      <div class="field"><label>Unidade (un, kg, m...)</label><input type="text" id="pUnidade" value="un"></div>
-      <div class="field"><label>Quantidade em estoque</label><input type="number" id="pQuantidade" min="0" step="1"></div>
-      <div class="field"><label>Estoque mínimo</label><input type="number" id="pEstoqueMinimo" min="0" step="1"></div>
-      <div class="field"><label>Categoria</label><input type="text" id="pCategoria"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeModal('modalProduct')">Cancelar</button>
-        <button class="btn btn-primary" id="submitProduct">Salvar</button>
       </div>
     </div>
   </div>
@@ -1073,6 +1032,15 @@
       'Alta':    { mode:'fill',    color:'#EDEFF2' },
       'Crítica': { mode:'fill',    color:'#DC2626' }
     };
+    // Rascunho — ajuste a redação pra bater com o critério real de vocês.
+    // Os minutos vêm direto de PRIORITY_THRESHOLDS, não são invenção.
+    const PRIORITY_DESCRIPTIONS = {
+      'Baixa':   'Sem urgência imediata. Aviso só depois de 1h parado, crítico com 2h. Entra na fila normal.',
+      'Média':   'Ritmo padrão. Aviso em 30 min parado, crítico em 1h.',
+      'Alta':    'Requer atenção logo. Aviso em 15 min parado, crítico em 30 min.',
+      'Crítica': 'Aviso em apenas 5 min, crítico em 15 min. Trate como prioridade máxima assim que abrir.'
+    };
+    function prioridadeHint(p){ return PRIORITY_DESCRIPTIONS[p] || ''; }
 
     // Mesmo aviso de honestidade do sistema original: isto é UX, não
     // segurança. A segurança de verdade está nas RPCs/RLS do banco
@@ -1083,7 +1051,7 @@
       processista: ['solicitar']
     };
 
-    let state = { tickets: [], machines: [], products: [], movements: [], mecanicos: [], categorias: [], componentes: [], fabricas: [], atualizacoes: [], usuarios: [] };
+    let state = { tickets: [], machines: [], mecanicos: [], categorias: [], componentes: [], fabricas: [], atualizacoes: [], usuarios: [] };
     let meuPerfil = null; // {id, nome, email, papel, mecanicoId}
     let pendingAction = null;
     let pollTimer = null, tickTimer = null, clockTimer = null;
@@ -1171,9 +1139,6 @@
     function maquinaFromRow_(r)   { return { ID: r.id, Numero: r.numero, Descricao: r.descricao, Setor: r.setor, Fabrica: r.fabrica_id }; }
     function nomeEntityFromRow_(r){ return { ID: r.id, Nome: r.nome }; }
     function mecanicoFromRow_(r)  { return { ID: r.id, Nome: r.nome, FotoBase64: r.foto_base64, Cadastrado_Em: r.cadastrado_em }; }
-    function produtoFromRow_(r) {
-      return { ID: r.id, Codigo: r.codigo, Nome: r.nome, Unidade: r.unidade, Quantidade: r.quantidade, Estoque_Minimo: r.estoque_minimo, Categoria: r.categoria };
-    }
     function chamadoFromRow_(r) {
       return {
         ID: r.id, Maquina: r.maquina_id, Status: r.status, Solicitante: r.solicitante,
@@ -1185,11 +1150,9 @@
         Imagem_Abertura_URL: r.imagem_abertura_url, Imagem_Manutencao_URL: r.imagem_manutencao_url,
         Imagem_Conclusao_URL: r.imagem_conclusao_url, Imagem_Reabertura_URL: r.imagem_reabertura_url,
         Imagem_Aguardando_URL: r.imagem_aguardando_url, Aguardando_Desde: r.aguardando_desde,
-        Tempo_Aguardando_Ms: Number(r.tempo_aguardando_ms) || 0, Produto_Aguardado: r.produto_aguardado_id
+        Tempo_Aguardando_Ms: Number(r.tempo_aguardando_ms) || 0,
+        Motivo_Pausa: r.motivo_pausa, Motivo_Pausa_Outro: r.motivo_pausa_outro
       };
-    }
-    function movimentacaoFromRow_(r) {
-      return { ID: r.id, Produto: r.produto_id, Tipo: r.tipo, Quantidade: r.quantidade, Data: r.data, Chamado: r.chamado_id, Responsavel: r.responsavel, Observacao: r.observacao };
     }
     function atualizacaoFromRow_(r) {
       return { ID: r.id, Chamado: r.chamado_id, Autor: r.autor, Nota: r.nota, Imagem_URL: r.imagem_url, Criado_Em: r.criado_em };
@@ -1719,7 +1682,7 @@
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>' },
       'Em Manutenção': { cls:'status-manutencao', label:'Em Manutenção', color:'#00833E',
         icon:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.7 19.3l-6-6a5 5 0 0 0-6.2-6.9L12 9l-1.4 1.4-3.5-3.5 3.4-3.4a5 5 0 0 0-6.9 6.2l6 6L2.3 22l1.4 1.4L11 17l6.3 6.3a1 1 0 0 0 1.4 0l3-3a1 1 0 0 0 0-1.4z"/></svg>' },
-      'Aguardando Componente': { cls:'status-aguardando', label:'Aguardando Peça', color:'#FBBF24',
+      'Aguardando Componente': { cls:'status-aguardando', label:'Pausado', color:'#FBBF24',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>' },
       'Concluído': { cls:'status-concluido', label:'Concluído', color:'#003A1C',
         icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12l5 5L20 6"/></svg>' }
@@ -1757,7 +1720,6 @@
     function categoriaNome(id){ return id ? lookupNome(state.categorias, id) : ''; }
     function componenteNome(id){ return id ? lookupNome(state.componentes, id) : ''; }
     function fabricaNome(id){ return id ? lookupNome(state.fabricas, id) : ''; }
-    function produtoNome(id){ const p = state.products.find(function(x){ return x.ID === id; }); return p ? p.Nome : (id || ''); }
 
     // =========================================================================
     // Board (render idêntico ao original)
@@ -1829,18 +1791,18 @@
         historyHtml = '<div class="history-strip">'
           + '<span>Fila <b>'+formatDuration(filaMs(t))+'</b></span>'
           + '<span>Reparo <b>'+formatDuration(reparoRealMs(t))+'</b></span>'
-          + (espera > 0 ? '<span class="wait">Esperou peça <b>'+formatDuration(espera)+'</b></span>' : '')
+          + (espera > 0 ? '<span class="wait">Em pausa <b>'+formatDuration(espera)+'</b></span>' : '')
           + '<span>Parada total <b>'+formatDuration(paradaTotalMs(t))+'</b></span>'
           + '</div>';
       } else if(t.Status === 'Em Manutenção' || t.Status === 'Aguardando Componente'){
         historyHtml = '<div class="history-strip">'
           + '<span>Esperou em Aberto <b>'+formatDuration(filaMs(t))+'</b></span>'
-          + (espera > 0 ? '<span class="wait">Espera por peça <b>'+formatDuration(espera)+'</b></span>' : '')
+          + (espera > 0 ? '<span class="wait">Em pausa <b>'+formatDuration(espera)+'</b></span>' : '')
           + '</div>';
       }
 
-      const waitingPart = (t.Status === 'Aguardando Componente' && t.Produto_Aguardado)
-        ? '<div class="waiting-part">⛔ Parado esperando: <b>'+produtoNome(t.Produto_Aguardado)+'</b></div>' : '';
+      const waitingPart = (t.Status === 'Aguardando Componente' && t.Motivo_Pausa)
+        ? '<div class="waiting-part">⛔ Pausado: <b>'+(t.Motivo_Pausa === 'Outro' ? t.Motivo_Pausa_Outro : t.Motivo_Pausa)+'</b></div>' : '';
 
       let navHtml = '';
       if(showNav){
@@ -1994,8 +1956,8 @@
 
       const precisaMecanico = toStatus === 'Em Manutenção' && !souMecanico && !(ticket && ticket.Mecanico);
       document.getElementById('mecanicoField').style.display = precisaMecanico ? 'block' : 'none';
-      document.getElementById('aguardandoProdutoField').style.display = toStatus === 'Aguardando Componente' ? 'block' : 'none';
-      document.getElementById('consumoRow').style.display = toStatus === 'Concluído' ? 'flex' : 'none';
+      document.getElementById('motivoPausaField').style.display = toStatus === 'Aguardando Componente' ? 'block' : 'none';
+      document.getElementById('motivoPausaOutroField').style.display = 'none';
       document.getElementById('fConcluirCategoriaRow').style.display = toStatus === 'Concluído' ? 'flex' : 'none';
 
       const ehIniciarManutencao = toStatus === 'Em Manutenção';
@@ -2014,7 +1976,6 @@
       document.getElementById('notaHint').style.display = 'none';
 
       document.getElementById('fNotaTransicao').value = '';
-      document.getElementById('fQuantidadeUsada').value = '';
       fotoTransicaoFile = null;
       document.getElementById('tFotoInput').value = '';
       document.getElementById('tFotoPreviewRow').style.display = 'none';
@@ -2027,13 +1988,10 @@
           : '<option value="">Nenhum mecânico cadastrado</option>';
       }
       if(toStatus === 'Aguardando Componente'){
-        const selP = document.getElementById('fProdutoAguardado');
-        selP.innerHTML = '<option value="">— selecione a peça —</option>' +
-          state.products.map(function(p){ return '<option value="'+p.ID+'">'+p.Nome+' ('+p.Quantidade+' '+p.Unidade+' em estoque)</option>'; }).join('');
+        document.getElementById('fMotivoPausa').value = 'Aguardando peça/componente';
+        document.getElementById('fMotivoPausaOutro').value = '';
       }
       if(toStatus === 'Concluído'){
-        document.getElementById('fProdutoUsado').innerHTML = '<option value="">— nenhuma —</option>' +
-          state.products.map(function(p){ return '<option value="'+p.ID+'">'+p.Nome+' ('+p.Quantidade+' '+p.Unidade+' em estoque)</option>'; }).join('');
         const selCat = document.getElementById('fConcluirCategoria');
         selCat.innerHTML = state.categorias.map(function(c){ return '<option value="'+c.ID+'">'+c.Nome+'</option>'; }).join('');
         if(ticket && ticket.Categoria) selCat.value = ticket.Categoria;
@@ -2056,6 +2014,20 @@
     }
     document.getElementById('fConcluirCategoria').addEventListener('change', toggleConcluirCategoriaOutroField);
 
+    function toggleMotivoPausaOutroField(){
+      document.getElementById('motivoPausaOutroField').style.display =
+        document.getElementById('fMotivoPausa').value === 'Outro' ? 'block' : 'none';
+    }
+    document.getElementById('fMotivoPausa').addEventListener('change', toggleMotivoPausaOutroField);
+
+    (function(){
+      const selPrioridadeAbertura = document.getElementById('fPrioridade');
+      const hintPrioridadeAbertura = document.getElementById('fPrioridadeHint');
+      function atualizarHint(){ hintPrioridadeAbertura.textContent = prioridadeHint(selPrioridadeAbertura.value); }
+      selPrioridadeAbertura.addEventListener('change', atualizarHint);
+      atualizarHint();
+    })();
+
     document.getElementById('submitTransition').addEventListener('click', function(){
       withButtonGuard(this, 'Enviando...', async function(){
         if(!pendingAction) return;
@@ -2067,10 +2039,12 @@
         if(document.getElementById('mecanicoField').style.display !== 'none' && !document.getElementById('fMecanico').value){
           showToast('Selecione o mecânico responsável', 'err'); return;
         }
-        let produtoAguardado = '';
+        let motivoPausa = '', motivoPausaOutro = '';
         if(to === 'Aguardando Componente'){
-          produtoAguardado = document.getElementById('fProdutoAguardado').value;
-          if(!produtoAguardado){ showToast('Informe qual peça está faltando', 'err'); return; }
+          motivoPausa = document.getElementById('fMotivoPausa').value;
+          motivoPausaOutro = document.getElementById('fMotivoPausaOutro').value.trim();
+          if(!motivoPausa){ showToast('Selecione o motivo da pausa', 'err'); return; }
+          if(motivoPausa === 'Outro' && !motivoPausaOutro){ showToast('Descreva o motivo da pausa', 'err'); return; }
         }
         let cat = '', catOutro = '', comp = '';
         if(to === 'Concluído'){
@@ -2091,12 +2065,16 @@
           p_id: id, p_novo_status: to,
           p_nota: document.getElementById('fNotaTransicao').value,
           p_mecanico: document.getElementById('fMecanico').value || null,
-          p_produto_usado: document.getElementById('fProdutoUsado').value || null,
-          p_quantidade_usada: Number(document.getElementById('fQuantidadeUsada').value) || null,
           p_categoria: cat || null, p_categoria_outro: catOutro || null, p_componente: comp || null,
-          p_produto_aguardado: produtoAguardado || null, p_imagem_url: foto.url
+          p_imagem_url: foto.url
         });
         if(res.success){
+          if(to === 'Aguardando Componente'){
+            const resMotivo = await callRpc('set_motivo_pausa', {
+              p_id: id, p_motivo: motivoPausa, p_motivo_outro: motivoPausa === 'Outro' ? motivoPausaOutro : null
+            });
+            if(!resMotivo.success) showToast(resMotivo.error || 'Chamado pausado, mas falhou ao salvar o motivo', 'err', 6000);
+          }
           if(foto.aviso) showToast(foto.aviso, 'err', 7000); else showToast('Chamado atualizado', 'ok');
           await refreshBoard();
         } else showToast(res.error || 'Falha ao atualizar', 'err');
@@ -2137,7 +2115,7 @@
           when: t.Aguardando_Desde ? formatDateTime(t.Aguardando_Desde) : null,
           who: (t.Aguardando_Desde ? 'Parado agora' : 'Já retomado') +
                ' · total esperando: ' + formatDuration(espera) +
-               (t.Produto_Aguardado ? ' · peça: ' + produtoNome(t.Produto_Aguardado) : ''),
+               (t.Motivo_Pausa ? ' · motivo: ' + (t.Motivo_Pausa === 'Outro' ? t.Motivo_Pausa_Outro : t.Motivo_Pausa) : ''),
           note: t.Nota_Aguardando, foto: t.Imagem_Aguardando_URL });
       }
       steps.push({ label:'Concluído', color: STATUS_META['Concluído'].color, done: !!t.Concluido_Em,
@@ -2182,6 +2160,12 @@
             + state.mecanicos.map(function(m){ return '<option value="'+m.ID+'">'+m.Nome+'</option>'; }).join('')
             + '</select></div>'
           : '';
+        const prioridadeAtual = t.Prioridade || 'Média';
+        const prioridadeOptions = '<div class="field"><label>Alterar prioridade (opcional)</label><select id="atPrioridade">'
+          + ['Baixa','Média','Alta','Crítica'].map(function(p){
+              return '<option value="'+p+'"'+(p === prioridadeAtual ? ' selected' : '')+'>'+p+'</option>';
+            }).join('')
+          + '</select><div class="field-hint" id="atPrioridadeHint">'+prioridadeHint(prioridadeAtual)+'</div></div>';
         formHtml =
           '<div style="border-top:1px solid var(--border); padding-top:10px; margin-top:14px;">'
           + '<div class="section-title" style="font-size:13px; margin-bottom:10px;">Adicionar atualização</div>'
@@ -2197,6 +2181,7 @@
           + '<button type="button" class="icon-btn" id="atFotoRemover">Remover foto</button>'
           + '</div></div>'
           + mecanicoOptions
+          + prioridadeOptions
           + '<button class="btn btn-primary btn-block" id="btnAdicionarAtualizacao">Adicionar</button>'
           + '</div>';
       }
@@ -2227,7 +2212,7 @@
             ? '<div class="history-strip" style="border-top:1px solid var(--border); padding-top:10px; margin-top:0;">'
               + '<span>Fila <b>'+formatDuration(filaMs(t))+'</b></span>'
               + '<span>Reparo <b>'+formatDuration(reparoRealMs(t))+'</b></span>'
-              + (espera > 0 ? '<span class="wait">Espera por peça <b>'+formatDuration(espera)+'</b></span>' : '')
+              + (espera > 0 ? '<span class="wait">Em pausa <b>'+formatDuration(espera)+'</b></span>' : '')
               + '<span>Parada total <b>'+formatDuration(paradaTotalMs(t))+'</b></span>'
               + '</div>'
             : '')
@@ -2287,24 +2272,42 @@
         nameEl.textContent = 'Nenhum arquivo selecionado'; row.style.display = 'none';
       });
 
+      const selPrioridadeAt = document.getElementById('atPrioridade');
+      const hintPrioridadeAt = document.getElementById('atPrioridadeHint');
+      const prioridadeOriginal = selPrioridadeAt.value;
+      selPrioridadeAt.addEventListener('change', function(){
+        hintPrioridadeAt.textContent = prioridadeHint(selPrioridadeAt.value);
+      });
+
       document.getElementById('btnAdicionarAtualizacao').addEventListener('click', function(){
         withButtonGuard(this, 'Enviando...', async function(){
           const nota = document.getElementById('atNota').value.trim();
-          if(!nota && !fotoAtualizacaoFile){
-            showToast('Escreva uma nota ou anexe uma foto', 'err'); return;
+          const novaPrioridade = selPrioridadeAt.value;
+          const prioridadeMudou = novaPrioridade !== prioridadeOriginal;
+          if(!nota && !fotoAtualizacaoFile && !prioridadeMudou){
+            showToast('Escreva uma nota, anexe uma foto ou altere a prioridade', 'err'); return;
           }
           const mecanicoSel = document.getElementById('atMecanico');
           const foto = await uploadFoto(fotoAtualizacaoFile, 'atualizacao');
-          const res = await callRpc('add_ticket_update', {
-            p_id: ticketId, p_nota: nota, p_imagem_url: foto.url,
-            p_mecanico: mecanicoSel ? (mecanicoSel.value || null) : null
-          });
-          if(res.success){
-            if(foto.aviso) showToast(foto.aviso, 'err', 7000); else showToast('Atualização adicionada', 'ok');
+          let ok = true, erro = '';
+          if(prioridadeMudou){
+            const resPrio = await callRpc('update_ticket_priority', { p_id: ticketId, p_nova_prioridade: novaPrioridade });
+            if(!resPrio.success){ ok = false; erro = resPrio.error || 'Falha ao alterar prioridade'; }
+          }
+          if(ok && (nota || fotoAtualizacaoFile)){
+            const res = await callRpc('add_ticket_update', {
+              p_id: ticketId, p_nota: nota, p_imagem_url: foto.url,
+              p_mecanico: mecanicoSel ? (mecanicoSel.value || null) : null
+            });
+            if(!res.success){ ok = false; erro = res.error || 'Falha ao adicionar atualização'; }
+            else if(foto.aviso){ showToast(foto.aviso, 'err', 7000); }
+          }
+          if(ok){
+            showToast('Atualização adicionada', 'ok');
             closeModal('modalHistorico');
             await refreshBoard();
           } else {
-            showToast(res.error || 'Falha ao adicionar atualização', 'err');
+            showToast(erro, 'err');
           }
         });
       });
@@ -2447,8 +2450,8 @@
         return '<div class="simple-row" style="--row-color:'+meta.color+'">'
           + '<div><div class="r-main">'+(machine.Numero || t.Maquina)+'</div>'
           + '<div class="r-sub">Solicitado por '+(t.Solicitante || '—')+' · Mecânico: '+mecanicoNome+'</div>'
-          + (t.Status === 'Aguardando Componente' && t.Produto_Aguardado
-              ? '<div class="blocked-tag">⛔ Esperando peça: '+produtoNome(t.Produto_Aguardado)+'</div>' : '')
+          + (t.Status === 'Aguardando Componente' && t.Motivo_Pausa
+              ? '<div class="blocked-tag">⛔ Pausado: '+(t.Motivo_Pausa === 'Outro' ? t.Motivo_Pausa_Outro : t.Motivo_Pausa)+'</div>' : '')
           + '</div>'
           + '<span class="status-pill" style="'+solidPillStyle(meta.color)+'">'+meta.label+'</span></div>';
       }).join('');
@@ -2458,11 +2461,6 @@
     // Dashboard, Indicadores, Gráficos — cálculo idêntico ao original
     // (não muda porque a fonte dos dados não muda a forma, só o transporte)
     // =========================================================================
-    function chamadosParadosPorProduto(produtoId){
-      return state.tickets.filter(function(t){
-        return t.Status === 'Aguardando Componente' && t.Produto_Aguardado === produtoId;
-      }).length;
-    }
 
     function renderDashboard(){
       const abertos = state.tickets.filter(function(t){ return t.Status === 'Aberto'; });
@@ -2494,11 +2492,11 @@
       document.getElementById('kpiGrid').innerHTML =
         '<div class="kpi-card" style="--kpi-color:var(--status-aberto)"><div class="kpi-value">'+abertos.length+'</div><div class="kpi-label">Abertos</div></div>'
         + '<div class="kpi-card" style="--kpi-color:var(--status-manutencao)"><div class="kpi-value">'+manutencao.length+'</div><div class="kpi-label">Em Manutenção</div></div>'
-        + '<div class="kpi-card" style="--kpi-color:var(--status-aguardando)"><div class="kpi-value">'+aguardando.length+'</div><div class="kpi-label">Aguardando Peça</div></div>'
+        + '<div class="kpi-card" style="--kpi-color:var(--status-aguardando)"><div class="kpi-value">'+aguardando.length+'</div><div class="kpi-label">Pausados</div></div>'
         + '<div class="kpi-card" style="--kpi-color:var(--status-concluido)"><div class="kpi-value">'+concluidos.length+'</div><div class="kpi-label">Concluídos</div></div>'
         + '<div class="kpi-card"><div class="kpi-value">'+formatDuration(avgFila)+'</div><div class="kpi-label">Fila Média</div></div>'
         + '<div class="kpi-card"><div class="kpi-value">'+formatDuration(avgReparo)+'</div><div class="kpi-label">Reparo Médio (sem espera)</div></div>'
-        + '<div class="kpi-card" style="--kpi-color:var(--warn)"><div class="kpi-value">'+formatDuration(avgEspera)+'</div><div class="kpi-label">Espera Média por Peça</div></div>'
+        + '<div class="kpi-card" style="--kpi-color:var(--warn)"><div class="kpi-value">'+formatDuration(avgEspera)+'</div><div class="kpi-label">Espera Média (Pausa)</div></div>'
         + '<div class="kpi-card" style="--kpi-color:'+(inflacao ? '#DC2626' : '#5F5F5F')+'">'
         + '<div class="kpi-value">'+criticosPct+'%</div>'
         + '<div class="kpi-label">'+(inflacao ? '⚠ % Crítica — possível inflação' : '% Aberto como Crítica')+'</div></div>';
@@ -2521,76 +2519,7 @@
         }).join('');
       }
 
-      const lowStockList = document.getElementById('lowStockList');
-      const baixos = state.products.filter(function(p){
-        return Number(p.Quantidade) <= Number(p.Estoque_Minimo) || chamadosParadosPorProduto(p.ID) > 0;
-      }).sort(function(a,b){ return chamadosParadosPorProduto(b.ID) - chamadosParadosPorProduto(a.ID); });
-
-      if(!baixos.length){ lowStockList.innerHTML = '<div class="empty-hint">Estoque OK — nada abaixo do mínimo</div>'; }
-      else {
-        lowStockList.innerHTML = baixos.map(function(p){
-          const parados = chamadosParadosPorProduto(p.ID);
-          const color = parados > 0 ? '#DC2626' : '#FBBF24';
-          return '<div class="simple-row" style="--row-color:'+color+'">'
-            + '<div><div class="r-main">'+p.Nome+'</div>'
-            + '<div class="r-sub">Mínimo: '+p.Estoque_Minimo+' '+p.Unidade+'</div>'
-            + (parados > 0 ? '<div class="blocked-tag">⛔ '+parados+' chamado(s) parado(s) esperando esta peça</div>' : '')
-            + '</div>'
-            + '<span class="status-pill" style="'+solidPillStyle(color)+'">'+p.Quantidade+' '+p.Unidade+'</span></div>';
-        }).join('');
-      }
-      renderPecasUsadasTable();
     }
-
-    function renderPecasUsadasTable(){
-      const tbody = document.getElementById('pecasUsadasTbody');
-      if(!state.products.length){
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-hint">Nenhum produto cadastrado</td></tr>'; return;
-      }
-      const podeAjustar = ['responsavel','mecanico'].indexOf(meuPerfil.papel) !== -1;
-      tbody.innerHTML = state.products.map(function(p){
-        const usadas = state.movements.filter(function(m){ return m.Produto === p.ID && m.Tipo === 'Saída'; })
-          .reduce(function(s,m){ return s + (Number(m.Quantidade)||0); }, 0);
-        const saldo = Number(p.Quantidade) || 0;
-        const parados = chamadosParadosPorProduto(p.ID);
-        return '<tr>'
-          + '<td>'+p.Nome+'</td>'
-          + '<td>'+(saldo + usadas)+' '+p.Unidade+'</td>'
-          + '<td>'+usadas+' '+p.Unidade+'</td>'
-          + '<td class="'+(saldo <= Number(p.Estoque_Minimo) ? 'low-stock' : '')+'">'+saldo+' '+p.Unidade+'</td>'
-          + '<td'+(parados ? ' class="low-stock"' : '')+'>'+(parados || '—')+'</td>'
-          + '<td>' + (podeAjustar
-            ? '<div class="stock-adjust">'
-              + '<button type="button" class="stock-adjust-btn minus" onclick="stepStock(\''+p.ID+'\', -1)">−</button>'
-              + '<span class="stock-adjust-value" id="qtyValue-'+p.ID+'" data-original="'+saldo+'">'+saldo+'</span>'
-              + '<button type="button" class="stock-adjust-btn" onclick="stepStock(\''+p.ID+'\', 1)">+</button>'
-              + '<button type="button" class="btn btn-primary stock-save-btn" id="saveBtn-'+p.ID+'" style="display:none;" onclick="saveStockAdjust(\''+p.ID+'\')">Salvar</button>'
-              + '</div>'
-            : '<span class="r-sub">sem permissão</span>')
-          + '</td></tr>';
-      }).join('');
-    }
-
-    function stepStock(produtoId, delta){
-      const el = document.getElementById('qtyValue-' + produtoId);
-      const original = Number(el.dataset.original);
-      const next = Math.max(0, Number(el.textContent) + delta);
-      el.textContent = next;
-      document.getElementById('saveBtn-' + produtoId).style.display = next !== original ? 'inline-flex' : 'none';
-    }
-    async function saveStockAdjust(produtoId){
-      const el = document.getElementById('qtyValue-' + produtoId);
-      const delta = Number(el.textContent) - Number(el.dataset.original);
-      if(delta === 0) return;
-      const res = await callRpc('register_movement', {
-        p_produto: produtoId, p_tipo: delta > 0 ? 'Entrada' : 'Saída', p_quantidade: Math.abs(delta),
-        p_observacao: 'Ajuste pelo Dashboard'
-      });
-      if(res.success){ showToast('Estoque atualizado', 'ok'); await refreshBoard(); }
-      else showToast(res.error || 'Falha ao ajustar estoque', 'err');
-    }
-    window.stepStock = stepStock;
-    window.saveStockAdjust = saveStockAdjust;
 
     function calcularGapsMTBF_(ticketsDaMaquina){
       const ordenados = ticketsDaMaquina.slice().sort(function(a,b){ return new Date(a.Concluido_Em) - new Date(b.Concluido_Em); });
@@ -2632,12 +2561,14 @@
         return { nome: (m && m.Numero) || maqId, falhas: tickets.length, mttr: mttr, mtbf: mtbf };
       }).sort(function(a,b){ return b.falhas - a.falhas; });
 
+      const REINCIDENCIA_LIMIAR = 3;
       const tbody = document.getElementById('mtbfMttrTbody');
       if(!linhas.length){
         tbody.innerHTML = '<tr><td colspan="4" class="empty-hint">Nenhum chamado concluído ainda</td></tr>';
       } else {
         tbody.innerHTML = linhas.map(function(l){
-          return '<tr><td>'+l.nome+'</td><td>'+l.falhas+'</td>'
+          const reincidente = l.falhas >= REINCIDENCIA_LIMIAR;
+          return '<tr'+(reincidente ? ' class="tr-reincidente"' : '')+'><td>'+l.nome+(reincidente ? ' ⚠' : '')+'</td><td>'+l.falhas+'</td>'
             + '<td>'+formatDuration(l.mttr)+'</td>'
             + '<td>'+(l.mtbf != null ? formatDuration(l.mtbf) : '—')+'</td></tr>';
         }).join('');
@@ -2665,7 +2596,7 @@
           + '<div class="desemp-name">'+s.m.Nome+'</div>'
           + '<div class="desemp-bar-track"><div class="desemp-bar-fill" style="width:'+(s.concluidosCount/maxC*100)+'%;"></div></div>'
           + '<div class="desemp-sub">Concluídos: <b>'+s.concluidosCount+'</b> · Em andamento: <b>'+s.emAndamento+'</b>'
-          + ' · Parados por peça: <b>'+s.parados+'</b> · Reparo médio: <b>'+formatDuration(s.media)+'</b></div>'
+          + ' · Pausados: <b>'+s.parados+'</b> · Reparo médio: <b>'+formatDuration(s.media)+'</b></div>'
           + '</div></div>';
       }).join('');
     }
@@ -2688,7 +2619,7 @@
         + '<div class="perfil-stats">'
         + '<div class="perfil-stat"><b>'+concluidos.length+'</b><span>Concluídos</span></div>'
         + '<div class="perfil-stat"><b>'+emAndamento.length+'</b><span>Em andamento</span></div>'
-        + '<div class="perfil-stat"><b>'+parados.length+'</b><span>Parados por peça</span></div>'
+        + '<div class="perfil-stat"><b>'+parados.length+'</b><span>Pausados</span></div>'
         + '<div class="perfil-stat"><b>'+formatDuration(media)+'</b><span>Reparo médio</span></div>'
         + '</div>'
         + '<div class="perfil-note">O reparo médio já desconta o tempo aguardando componente. Ainda assim não é nota de desempenho isolada: chamados Críticos/Altos levam mais tempo que Baixos.</div>';
@@ -2779,7 +2710,7 @@
           datasets: [
             { label:'Fila (h)',   data: ids.map(function(i){ return mean(porMaquina[i].fila); }),   backgroundColor:'#2563EB' },
             { label:'Reparo (h)', data: ids.map(function(i){ return mean(porMaquina[i].reparo); }), backgroundColor:'#00833E' },
-            { label:'Espera por peça (h)', data: ids.map(function(i){ return mean(porMaquina[i].espera); }), backgroundColor:'#FBBF24' }
+            { label:'Em pausa (h)', data: ids.map(function(i){ return mean(porMaquina[i].espera); }), backgroundColor:'#FBBF24' }
           ]
         },
         options:{ responsive:true, plugins:{ legend:{ labels:{ color:'#9AA0A6' } } },
@@ -2843,12 +2774,6 @@
     function renderAllCadastroTables(){
       document.getElementById('machinesTbody').innerHTML = state.machines.map(function(m){
         return '<tr><td>'+m.Numero+'</td><td>'+m.Descricao+'</td><td>'+m.Setor+'</td>'+acoesHtml('editMachineUI','deleteMachineUI',m.ID)+'</tr>';
-      }).join('');
-
-      document.getElementById('productsTbody').innerHTML = state.products.map(function(p){
-        return '<tr><td>'+p.Codigo+'</td><td>'+p.Nome+'</td>'
-          + '<td class="'+(Number(p.Quantidade) <= Number(p.Estoque_Minimo) ? 'low-stock' : '')+'">'+p.Quantidade+'</td>'
-          + '<td>'+p.Estoque_Minimo+'</td><td>'+p.Unidade+'</td>'+acoesHtml('editProductUI','deleteProductUI',p.ID)+'</tr>';
       }).join('');
 
       document.getElementById('categoriasTbody').innerHTML = state.categorias.map(function(c){
@@ -2931,24 +2856,6 @@
         return id
           ? { p_id:id, p_numero:val('mNumero'), p_descricao:val('mDescricao'), p_setor:val('mSetor'), p_fabrica:null }
           : { p_numero:val('mNumero'), p_descricao:val('mDescricao'), p_setor:val('mSetor'), p_fabrica:null };
-      }
-    });
-
-    wireCrud({
-      addBtn:'addProductBtn', submitBtn:'submitProduct', modal:'modalProduct', title:'productModalTitle',
-      newTitle:'Novo Produto', editTitle:'Editar Produto', editFn:'editProductUI', delFn:'deleteProductUI',
-      rpcAdd:'add_product', rpcEdit:'edit_product', rpcDel:'delete_product',
-      confirmMsg:'Excluir este produto? Só funciona se ele não tiver movimentação de estoque nem chamado esperando por ele.',
-      list: function(){ return state.products; },
-      clear: function(){ ['pId','pCodigo','pNome','pQuantidade','pEstoqueMinimo','pCategoria'].forEach(function(i){ set(i,''); }); set('pUnidade','un'); },
-      fill: function(p){ set('pId',p.ID); set('pCodigo',p.Codigo); set('pNome',p.Nome); set('pUnidade',p.Unidade);
-                         set('pQuantidade',p.Quantidade); set('pEstoqueMinimo',p.Estoque_Minimo); set('pCategoria',p.Categoria); },
-      read: function(){
-        if(!val('pNome').trim()){ showToast('Informe o nome do produto','err'); return null; }
-        const id = val('pId');
-        const base = { p_codigo:val('pCodigo'), p_nome:val('pNome'), p_unidade:val('pUnidade'),
-                       p_quantidade:Number(val('pQuantidade'))||0, p_estoque_minimo:Number(val('pEstoqueMinimo'))||0, p_categoria:val('pCategoria') };
-        return id ? Object.assign({ p_id:id }, base) : base;
       }
     });
 
@@ -3093,18 +3000,16 @@
     }
 
     // =========================================================================
-    // Sync — 9 queries em paralelo no lugar de um getBoardData só.
+    // Sync — 7 queries em paralelo no lugar de um getBoardData só.
     // Cada tabela tem RLS liberando leitura pra qualquer perfil ativo (ver
     // migration_v2_rls_rpc.sql), então isto funciona igual pra todo mundo.
     // =========================================================================
     async function refreshBoard(){
       const [
-        tRes, mRes, pRes, mvRes, mcRes, catRes, compRes, fabRes, atRes, usRes
+        tRes, mRes, mcRes, catRes, compRes, fabRes, atRes, usRes
       ] = await Promise.all([
         sb.from('chamados').select('*').order('solicitado_em', { ascending: false }),
         sb.from('maquinas').select('*').order('numero', { ascending: true }),
-        sb.from('produtos').select('*').order('nome', { ascending: true }),
-        sb.from('movimentacoes').select('*').order('data', { ascending: false }),
         sb.from('mecanicos').select('*').order('nome', { ascending: true }),
         sb.from('categorias').select('*').order('nome', { ascending: true }),
         sb.from('componentes').select('*').order('nome', { ascending: true }),
@@ -3113,13 +3018,11 @@
         meuPerfil.papel === 'responsavel' ? sb.from('perfis').select('*') : Promise.resolve({ data: [] })
       ]);
 
-      const primeiraFalha = [tRes,mRes,pRes,mvRes,mcRes,catRes,compRes,fabRes,atRes].find(function(r){ return r.error; });
+      const primeiraFalha = [tRes,mRes,mcRes,catRes,compRes,fabRes,atRes].find(function(r){ return r.error; });
       if(primeiraFalha){ showToast(primeiraFalha.error.message, 'err'); return; }
 
       state.tickets      = (tRes.data || []).map(chamadoFromRow_);
       state.machines     = (mRes.data || []).map(maquinaFromRow_);
-      state.products     = (pRes.data || []).map(produtoFromRow_);
-      state.movements    = (mvRes.data || []).map(movimentacaoFromRow_);
       state.mecanicos    = (mcRes.data || []).map(mecanicoFromRow_);
       state.categorias   = (catRes.data || []).map(nomeEntityFromRow_);
       state.componentes  = (compRes.data || []).map(nomeEntityFromRow_);
