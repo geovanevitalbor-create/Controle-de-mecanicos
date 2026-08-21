@@ -709,7 +709,9 @@
       <div class="filter-row">
         <div class="field"><label>De</label><input type="date" id="chartDateFrom"></div>
         <div class="field"><label>Até</label><input type="date" id="chartDateTo"></div>
-        <button class="btn btn-ghost" id="chartFilterReset">Últimos 30 dias</button>
+        <div class="field"><label>Máquina</label><select id="chartMaquina"><option value="">— todas —</option></select></div>
+        <div class="field"><label>Problema</label><select id="chartCategoria"><option value="">— todos —</option></select></div>
+        <button class="btn btn-ghost" id="chartFilterReset">Limpar filtros</button>
       </div>
 
       <div class="chart-card">
@@ -2652,25 +2654,48 @@
       to.value = new Date().toISOString().slice(0,10);
       from.value = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
     }
+    function populateChartFilterSelects_(){
+      const selMaq = document.getElementById('chartMaquina');
+      const prevMaq = selMaq.value;
+      selMaq.innerHTML = '<option value="">— todas —</option>' +
+        state.machines.slice().sort(function(a,b){ return (a.Numero||'').localeCompare(b.Numero||''); })
+          .map(function(m){ return '<option value="'+m.ID+'">'+(m.Numero || m.ID)+'</option>'; }).join('');
+      if(prevMaq && state.machines.some(function(m){ return m.ID === prevMaq; })) selMaq.value = prevMaq;
+
+      const selCat = document.getElementById('chartCategoria');
+      const prevCat = selCat.value;
+      selCat.innerHTML = '<option value="">— todos —</option>' +
+        state.categorias.map(function(c){ return '<option value="'+c.ID+'">'+c.Nome+'</option>'; }).join('');
+      if(prevCat && state.categorias.some(function(c){ return c.ID === prevCat; })) selCat.value = prevCat;
+    }
     document.getElementById('chartFilterReset').addEventListener('click', function(){
       document.getElementById('chartDateTo').value = new Date().toISOString().slice(0,10);
       document.getElementById('chartDateFrom').value = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+      document.getElementById('chartMaquina').value = '';
+      document.getElementById('chartCategoria').value = '';
       renderCharts();
     });
     document.getElementById('chartDateFrom').addEventListener('change', renderCharts);
     document.getElementById('chartDateTo').addEventListener('change', renderCharts);
+    document.getElementById('chartMaquina').addEventListener('change', renderCharts);
+    document.getElementById('chartCategoria').addEventListener('change', renderCharts);
 
     function ticketsInDateRange(){
       initChartDateDefaults();
+      populateChartFilterSelects_();
       const fromVal = document.getElementById('chartDateFrom').value;
       const toVal = document.getElementById('chartDateTo').value;
       const fromDate = fromVal ? new Date(fromVal + 'T00:00:00') : null;
       const toDate = toVal ? new Date(toVal + 'T23:59:59') : null;
+      const maquinaSel = document.getElementById('chartMaquina').value;
+      const categoriaSel = document.getElementById('chartCategoria').value;
       return state.tickets.filter(function(t){
         if(!t.Solicitado_Em) return false;
         const d = new Date(t.Solicitado_Em);
         if(fromDate && d < fromDate) return false;
         if(toDate && d > toDate) return false;
+        if(maquinaSel && t.Maquina !== maquinaSel) return false;
+        if(categoriaSel && t.Categoria !== categoriaSel) return false;
         return true;
       });
     }
