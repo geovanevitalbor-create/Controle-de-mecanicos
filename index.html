@@ -1037,10 +1037,10 @@
     // Rascunho — ajuste a redação pra bater com o critério real de vocês.
     // Os minutos vêm direto de PRIORITY_THRESHOLDS, não são invenção.
     const PRIORITY_DESCRIPTIONS = {
-      'Baixa':   'Sem urgência imediata. Aviso só depois de 1h parado, crítico com 2h. Entra na fila normal.',
-      'Média':   'Ritmo padrão. Aviso em 30 min parado, crítico em 1h.',
-      'Alta':    'Requer atenção logo. Aviso em 15 min parado, crítico em 30 min.',
-      'Crítica': 'Aviso em apenas 5 min, crítico em 15 min. Trate como prioridade máxima assim que abrir.'
+      'Baixa':   'Não atrapalha a produção, pode esperar a fila. Aviso em 1h parado, crítico em 2h.',
+      'Média':   'Atrapalha o trabalho, mas a máquina roda. Aviso em 30 min parado, crítico em 1h.',
+      'Alta':    'Capacidade reduzida ou risco de parar em breve. Aviso em 15 min parado, crítico em 30 min.',
+      'Crítica': 'Máquina parada ou prestes a parar — produção comprometida agora. Aviso em 5 min, crítico em 15 min.'
     };
     function prioridadeHint(p){ return PRIORITY_DESCRIPTIONS[p] || ''; }
 
