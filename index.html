@@ -1089,9 +1089,25 @@
 
     function urgencyScore(t){
       if(t.Status === 'Concluído') return -1;
-      if(t.Status === 'Aguardando Componente') return elapsedMinutes(t.Aguardando_Desde) / (60*24);
+      const limiar = getThresholds(t.Prioridade || 'Média').danger;
+      if(t.Status === 'Aguardando Componente') return elapsedMinutes(t.Aguardando_Desde) / limiar;
       const ref = t.Status === 'Aberto' ? t.Solicitado_Em : t.Iniciado_Em;
-      return elapsedMinutes(ref) / getThresholds(t.Prioridade || 'Média').danger;
+      return elapsedMinutes(ref) / limiar;
+    }
+
+    // Prioridade manda na ordenação "mais urgente primeiro"; urgencyScore() (o
+    // quanto já consumiu do prazo da própria prioridade) só desempata dentro
+    // do mesmo nível — antes disso, uma Baixa vencida podia passar na frente
+    // de uma Crítica recém-aberta.
+    const PRIORITY_ORDER = { 'Crítica': 0, 'Alta': 1, 'Média': 2, 'Baixa': 3 };
+    function priorityRank_(p){
+      return PRIORITY_ORDER.hasOwnProperty(p) ? PRIORITY_ORDER[p] : PRIORITY_ORDER['Média'];
+    }
+    function compareUrgencia(a, b){
+      const rankA = priorityRank_(a.Prioridade);
+      const rankB = priorityRank_(b.Prioridade);
+      if(rankA !== rankB) return rankA - rankB;
+      return urgencyScore(b) - urgencyScore(a);
     }
 
     function formatDurationLong(ms){
@@ -1470,7 +1486,6 @@
       if(!tickTimer)  tickTimer  = setInterval(tickTimers, TICK_INTERVAL_MS);
       if(!clockTimer) clockTimer = setInterval(tickClock, 1000);
       tickClock();
-      lastInteraction = Date.now();
     }
 
     document.getElementById('btnIniciar').addEventListener('click', function(){
@@ -1607,7 +1622,7 @@
       itens.sort(function(a,b){
         return listaOrdem === 'antigo'
           ? new Date(a.Solicitado_Em) - new Date(b.Solicitado_Em)
-          : urgencyScore(b) - urgencyScore(a);
+          : compareUrgencia(a, b);
       });
 
       container.innerHTML = '';
@@ -1739,7 +1754,7 @@
         document.getElementById('count-'+status).textContent = cols[status].length;
         zone.innerHTML = '';
         if(cols[status].length === 0){ zone.innerHTML = '<div class="empty-hint">Nenhum chamado</div>'; return; }
-        cols[status].sort(function(a,b){ return urgencyScore(b) - urgencyScore(a); })
+        cols[status].sort(compareUrgencia)
                     .forEach(function(t){ zone.appendChild(renderCard(t)); });
       });
 
@@ -2344,7 +2359,7 @@
       document.getElementById(countId).textContent = tickets.length;
       zone.innerHTML = '';
       if(!tickets.length){ zone.innerHTML = '<div class="empty-hint">Nenhum chamado</div>'; return; }
-      tickets.sort(function(a,b){ return urgencyScore(b) - urgencyScore(a); })
+      tickets.sort(compareUrgencia)
              .forEach(function(t){ zone.appendChild(renderCard(t, 'readonly')); });
     }
 
@@ -2446,7 +2461,7 @@
     function renderReqList(){
       const list = document.getElementById('reqList');
       const abertos = state.tickets.filter(function(t){ return t.Status !== 'Concluído'; })
-        .sort(function(a,b){ return urgencyScore(b) - urgencyScore(a); });
+        .sort(compareUrgencia);
       if(!abertos.length){ list.innerHTML = '<div class="empty-hint">Nenhum chamado em andamento</div>'; return; }
       list.innerHTML = abertos.map(function(t){
         const machine = state.machines.find(function(m){ return m.ID === t.Maquina; }) || {};
@@ -3070,42 +3085,6 @@
 
     function tickClock(){ document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR'); }
 
-    // =========================================================================
-    // Timeout de inatividade — bloqueio com logout de verdade (sb.auth.signOut).
-    // Mesmas duas exceções do original: modal aberto, e aba Mecânico nunca
-    // bloqueia (ver comentário original — vale a mesma lógica aqui).
-    // =========================================================================
-    const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-    let lastInteraction = Date.now();
-    ['click','touchstart','keydown','input'].forEach(function(evt){
-      document.addEventListener(evt, function(){ lastInteraction = Date.now(); }, true);
-    });
-
-    async function bloquearTela(){
-      await sb.auth.signOut();
-      pararTimers_();
-      meuPerfil = null;
-      knownTicketIds = null;
-      state = { tickets: [], machines: [], products: [], movements: [], mecanicos: [], categorias: [], componentes: [], fabricas: [], atualizacoes: [], usuarios: [] };
-
-      document.querySelectorAll('.overlay.show').forEach(function(o){ o.classList.remove('show'); });
-      document.getElementById('appShell').style.display = 'none';
-      document.getElementById('authScreen').style.display = 'none';
-      document.getElementById('splashScreen').style.display = 'flex';
-      document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
-      currentView = null;
-
-      document.getElementById('loginEmail').value = '';
-      document.getElementById('loginSenha').value = '';
-    }
-
-    setInterval(function(){
-      const appVisible = document.getElementById('appShell').style.display !== 'none';
-      const modalOpen = document.querySelector('.overlay.show');
-      if(appVisible && !modalOpen && currentView !== 'mecanico' && (Date.now() - lastInteraction) >= IDLE_TIMEOUT_MS){
-        bloquearTela();
-      }
-    }, 10000);
   </script>
 </body>
 </html>
