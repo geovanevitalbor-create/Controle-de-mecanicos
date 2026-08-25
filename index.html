@@ -469,19 +469,19 @@
           <button class="auth-tab-btn" data-authtab="signup">Criar conta</button>
         </div>
 
-        <div class="auth-pane active" id="authpane-login">
-          <div class="field"><label>E-mail</label><input type="email" id="loginEmail" autocomplete="username" inputmode="email"></div>
-          <div class="field"><label>Senha</label><input type="password" id="loginSenha" autocomplete="current-password"></div>
+        <form class="auth-pane active" id="authpane-login">
+          <div class="field"><label>E-mail</label><input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"></div>
+          <div class="field"><label>Senha</label><input type="password" id="loginSenha" name="password" autocomplete="current-password"></div>
           <div id="loginErro" style="display:none; color:var(--danger); font-size:12.5px; background:rgba(220,38,38,0.1); border:1px solid var(--danger); border-radius:6px; padding:9px 12px; margin-bottom:12px;"></div>
-          <button class="btn btn-primary btn-block" id="btnLogin">Entrar</button>
+          <button class="btn btn-primary btn-block" id="btnLogin" type="submit">Entrar</button>
           <div style="text-align:center;">
-            <button class="auth-link" id="btnEsqueciSenha">Esqueci minha senha</button>
+            <button class="auth-link" id="btnEsqueciSenha" type="button">Esqueci minha senha</button>
           </div>
-        </div>
+        </form>
 
-        <div class="auth-pane" id="authpane-signup">
-          <div class="field"><label>Nome completo *</label><input type="text" id="sgNome" autocomplete="name"></div>
-          <div class="field"><label>E-mail *</label><input type="email" id="sgEmail" autocomplete="email" inputmode="email"></div>
+        <form class="auth-pane" id="authpane-signup">
+          <div class="field"><label>Nome completo *</label><input type="text" id="sgNome" name="name" autocomplete="name"></div>
+          <div class="field"><label>E-mail *</label><input type="email" id="sgEmail" name="email" autocomplete="email" inputmode="email"></div>
           <div class="field">
             <label>Você é *</label>
             <select id="sgPapel">
@@ -495,10 +495,10 @@
             <input type="text" id="sgCodigo" autocomplete="off">
             <div class="field-hint">Peça ao administrador do sistema. Sem ele, não é possível criar conta de responsável.</div>
           </div>
-          <div class="field"><label>Senha (mínimo 8 caracteres) *</label><input type="password" id="sgSenha" autocomplete="new-password"></div>
-          <div class="field"><label>Repita a senha *</label><input type="password" id="sgSenha2" autocomplete="new-password"></div>
-          <button class="btn btn-primary btn-block" id="btnCriarConta">Criar conta</button>
-        </div>
+          <div class="field"><label>Senha (mínimo 8 caracteres) *</label><input type="password" id="sgSenha" name="new-password" autocomplete="new-password"></div>
+          <div class="field"><label>Repita a senha *</label><input type="password" id="sgSenha2" name="new-password-confirm" autocomplete="new-password"></div>
+          <button class="btn btn-primary btn-block" id="btnCriarConta" type="submit">Criar conta</button>
+        </form>
       </div>
 
       <!-- Recuperação passo 1: pede o e-mail, dispara o link nativo do Supabase Auth -->
@@ -513,13 +513,13 @@
       <!-- Recuperação passo 2: só aparece quando a pessoa chega aqui PELO LINK do
            e-mail — o Supabase Auth detecta isso sozinho (evento PASSWORD_RECOVERY,
            ver wireAuthListener()) e troca pra este painel automaticamente. -->
-      <div id="authRecover2" style="display:none;">
+      <form id="authRecover2" style="display:none;">
         <h3 style="font-family:var(--disp); text-transform:uppercase; margin:0 0 12px;">Nova senha</h3>
         <div class="auth-step-hint">Você veio pelo link do e-mail. Defina sua nova senha.</div>
-        <div class="field"><label>Nova senha (mínimo 8 caracteres)</label><input type="password" id="recSenha" autocomplete="new-password"></div>
-        <div class="field"><label>Repita a nova senha</label><input type="password" id="recSenha2" autocomplete="new-password"></div>
-        <button class="btn btn-primary btn-block" id="btnRedefinirSenha">Redefinir senha</button>
-      </div>
+        <div class="field"><label>Nova senha (mínimo 8 caracteres)</label><input type="password" id="recSenha" name="new-password" autocomplete="new-password"></div>
+        <div class="field"><label>Repita a nova senha</label><input type="password" id="recSenha2" name="new-password-confirm" autocomplete="new-password"></div>
+        <button class="btn btn-primary btn-block" id="btnRedefinirSenha" type="submit">Redefinir senha</button>
+      </form>
     </div>
   </div>
 
@@ -1318,8 +1318,9 @@
       return err && err.message || 'Não foi possível entrar.';
     }
 
-    document.getElementById('btnLogin').addEventListener('click', function(){
-      withButtonGuard(this, 'Entrando...', async function(){
+    document.getElementById('authpane-login').addEventListener('submit', function(e){
+      e.preventDefault();
+      withButtonGuard(document.getElementById('btnLogin'), 'Entrando...', async function(){
         limparErroLogin_();
         const email = document.getElementById('loginEmail').value.trim();
         const senha = document.getElementById('loginSenha').value;
@@ -1338,8 +1339,9 @@
       document.getElementById('sgCodigoField').style.display = e.target.value === 'responsavel' ? 'block' : 'none';
     });
 
-    document.getElementById('btnCriarConta').addEventListener('click', function(){
-      withButtonGuard(this, 'Criando...', async function(){
+    document.getElementById('authpane-signup').addEventListener('submit', function(e){
+      e.preventDefault();
+      withButtonGuard(document.getElementById('btnCriarConta'), 'Criando...', async function(){
         const nome = document.getElementById('sgNome').value.trim();
         const email = document.getElementById('sgEmail').value.trim();
         const papel = document.getElementById('sgPapel').value;
@@ -1399,8 +1401,9 @@
       });
     });
 
-    document.getElementById('btnRedefinirSenha').addEventListener('click', function(){
-      withButtonGuard(this, 'Salvando...', async function(){
+    document.getElementById('authRecover2').addEventListener('submit', function(e){
+      e.preventDefault();
+      withButtonGuard(document.getElementById('btnRedefinirSenha'), 'Salvando...', async function(){
         const s1 = document.getElementById('recSenha').value;
         const s2 = document.getElementById('recSenha2').value;
         if(s1.length < 8){ showToast('A senha precisa ter pelo menos 8 caracteres.', 'err'); return; }
