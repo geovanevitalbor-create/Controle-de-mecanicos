@@ -851,7 +851,7 @@
           <label class="file-input-btn" for="tFotoInput">📷 Escolher foto</label>
           <span class="file-input-name" id="tFotoInputName">Nenhum arquivo selecionado</span>
         </div>
-        <input type="file" id="tFotoInput" accept="image/*" class="file-input-hidden">
+        <input type="file" id="tFotoInput" accept="image/*" capture="environment" class="file-input-hidden">
         <div class="img-preview-row" id="tFotoPreviewRow" style="display:none;">
           <img id="tFotoPreview" src="" alt="Prévia">
           <button type="button" class="icon-btn" id="tFotoRemover">Remover foto</button>
@@ -2199,7 +2199,7 @@
           + '<label class="file-input-btn" for="atFotoInput">📷 Escolher foto</label>'
           + '<span class="file-input-name" id="atFotoInputName">Nenhum arquivo selecionado</span>'
           + '</div>'
-          + '<input type="file" id="atFotoInput" accept="image/*" class="file-input-hidden">'
+          + '<input type="file" id="atFotoInput" accept="image/*" capture="environment" class="file-input-hidden">'
           + '<div class="img-preview-row" id="atFotoPreviewRow" style="display:none;">'
           + '<img id="atFotoPreview" src="" alt="Prévia">'
           + '<button type="button" class="icon-btn" id="atFotoRemover">Remover foto</button>'
