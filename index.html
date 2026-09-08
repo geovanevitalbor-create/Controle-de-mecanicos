@@ -545,6 +545,7 @@
     </div>
 
     <div class="mec-subview" id="mecsub-quadro">
+    <div class="lista-filtros" id="boardFiltros"></div>
     <div class="board-scroll-wrap">
       <button class="board-scroll-btn left" id="boardScrollLeft" aria-label="Rolar para a esquerda" type="button">‹</button>
       <div class="board" id="board">
@@ -697,6 +698,7 @@
           </table>
         </div>
         <div class="perfil-note">
+          Clique numa linha pra ver o histórico de chamados dessa máquina.<br>
           Já ordenado por quem mais chama manutenção. <b>Linha destacada em vermelho</b> = 3 ou mais chamados concluídos, sinal de máquina crônica, vale investigar causa raiz em vez de só consertar de novo.<br>
           <b>MTTR</b> (Tempo Médio de Reparo): quanto tempo, em média, a manutenção leva pra consertar essa máquina — sem contar tempo em pausa.
           <b>MTBF</b> (Tempo Médio Entre Falhas): quanto tempo, em média, a máquina roda sem quebrar de novo — do fim de um conserto até o início do próximo chamado.
@@ -953,6 +955,14 @@
       <h3 id="historicoTitle">Histórico do Chamado</h3>
       <div id="historicoBody"></div>
       <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modalHistorico')">Fechar</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modalMaquinaHistorico">
+    <div class="modal" style="max-width:560px;">
+      <h3 id="maquinaHistoricoTitle">Histórico da Máquina</h3>
+      <div id="maquinaHistoricoBody"></div>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modalMaquinaHistorico')">Fechar</button></div>
     </div>
   </div>
 
@@ -1599,6 +1609,15 @@
       { key:'Aguardando Componente', label:'Aguardando' }
     ];
 
+    let boardFiltroPrioridade = 'todos';
+    const BOARD_FILTROS = [
+      { key:'todos', label:'Todas' },
+      { key:'Crítica', label:'Crítica' },
+      { key:'Alta', label:'Alta' },
+      { key:'Média', label:'Média' },
+      { key:'Baixa', label:'Baixa' }
+    ];
+
     function renderMecanicoLista(){
       const chipsEl = document.getElementById('listaFiltros');
       const container = document.getElementById('mecanicoListaCards');
@@ -1749,7 +1768,10 @@
     // =========================================================================
     function render(){
       const cols = { 'Aberto':[], 'Em Manutenção':[], 'Aguardando Componente':[], 'Concluído':[] };
-      state.tickets.forEach(function(t){ if(cols[t.Status]) cols[t.Status].push(t); });
+      const itensQuadro = boardFiltroPrioridade === 'todos'
+        ? state.tickets
+        : state.tickets.filter(function(t){ return (t.Prioridade || 'Média') === boardFiltroPrioridade; });
+      itensQuadro.forEach(function(t){ if(cols[t.Status]) cols[t.Status].push(t); });
 
       Object.keys(cols).forEach(function(status){
         const zone = document.getElementById('col-'+status);
@@ -1762,6 +1784,26 @@
       });
 
       document.getElementById('ticketCount').textContent = state.tickets.length + ' chamado(s) no total';
+      renderBoardFiltros();
+    }
+
+    function renderBoardFiltros(){
+      const chipsEl = document.getElementById('boardFiltros');
+      if(!chipsEl) return;
+      const contagens = { todos: state.tickets.length };
+      BOARD_FILTROS.forEach(function(f){
+        if(f.key !== 'todos') contagens[f.key] = state.tickets.filter(function(t){ return (t.Prioridade || 'Média') === f.key; }).length;
+      });
+      chipsEl.innerHTML = BOARD_FILTROS.map(function(f){
+        const cor = f.key === 'todos' ? null : (PRIORITY_META[f.key] || {}).color;
+        const ativo = boardFiltroPrioridade === f.key;
+        const estilo = cor ? '--chip-color:'+cor+'; --chip-text:'+accessibleTextOn(cor)+';' : '';
+        return '<button class="filtro-chip'+(ativo?' active':'')+'" style="'+estilo+'" data-filtro="'+f.key+'">'
+          + f.label + ' ' + contagens[f.key] + '</button>';
+      }).join('');
+      chipsEl.querySelectorAll('.filtro-chip').forEach(function(btn){
+        btn.addEventListener('click', function(){ boardFiltroPrioridade = btn.dataset.filtro; render(); });
+      });
     }
 
     function formatDateTime(iso){
@@ -2582,7 +2624,7 @@
         const tickets = porMaquina[maqId];
         const mttr = media_(tickets.map(reparoRealMs).filter(function(v){ return v != null; }));
         const mtbf = media_(calcularGapsMTBF_(tickets));
-        return { nome: (m && m.Numero) || maqId, falhas: tickets.length, mttr: mttr, mtbf: mtbf };
+        return { id: maqId, nome: (m && m.Numero) || maqId, falhas: tickets.length, mttr: mttr, mtbf: mtbf };
       }).sort(function(a,b){ return b.falhas - a.falhas; });
 
       const REINCIDENCIA_LIMIAR = 3;
@@ -2592,11 +2634,56 @@
       } else {
         tbody.innerHTML = linhas.map(function(l){
           const reincidente = l.falhas >= REINCIDENCIA_LIMIAR;
-          return '<tr'+(reincidente ? ' class="tr-reincidente"' : '')+'><td>'+l.nome+(reincidente ? ' ⚠' : '')+'</td><td>'+l.falhas+'</td>'
+          return '<tr'+(reincidente ? ' class="tr-reincidente"' : '')+' data-maquina-id="'+l.id+'" style="cursor:pointer;"><td>'+l.nome+(reincidente ? ' ⚠' : '')+'</td><td>'+l.falhas+'</td>'
             + '<td>'+formatDuration(l.mttr)+'</td>'
             + '<td>'+(l.mtbf != null ? formatDuration(l.mtbf) : '—')+'</td></tr>';
         }).join('');
+        tbody.querySelectorAll('tr[data-maquina-id]').forEach(function(tr){
+          tr.addEventListener('click', function(){ openMaquinaHistoricoModal(tr.dataset.maquinaId); });
+        });
       }
+    }
+
+    function openMaquinaHistoricoModal(maquinaId){
+      const m = state.machines.find(function(x){ return x.ID === maquinaId; }) || {};
+      const tickets = state.tickets
+        .filter(function(t){ return t.Maquina === maquinaId; })
+        .sort(function(a,b){ return new Date(b.Solicitado_Em) - new Date(a.Solicitado_Em); });
+
+      document.getElementById('maquinaHistoricoTitle').textContent = 'Histórico — ' + (m.Numero || maquinaId);
+
+      const body = document.getElementById('maquinaHistoricoBody');
+      if(!tickets.length){
+        body.innerHTML = '<div class="empty-hint">Nenhum chamado registrado pra essa máquina</div>';
+        openModal('modalMaquinaHistorico');
+        return;
+      }
+
+      body.innerHTML = tickets.map(function(t){
+        const meta = STATUS_META[t.Status] || STATUS_META['Aberto'];
+        const descricaoAbertura = t.Nota_Abertura || '';
+        const descricaoConclusao = t.Status === 'Concluído' ? (t.Nota_Conclusao || '') : '';
+        return '<div class="mh-item" data-id="'+t.ID+'" style="border-bottom:1px solid var(--border); padding:10px 0; cursor:pointer;">'
+          + '<div class="lcard-tags">'
+          + '<span class="lcard-status-pill" style="'+solidPillStyle(meta.color)+'">'+meta.label+'</span>'
+          + '<span class="priority-chip" style="'+priorityChipStyle(t.Prioridade || 'Média')+'">'+prioridadeTexto(t.Prioridade || 'Média')+'</span>'
+          + '</div>'
+          + '<div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">'
+          + formatDateTime(t.Solicitado_Em) + (t.Categoria ? ' · '+categoriaNome(t.Categoria) : '')
+          + '</div>'
+          + (descricaoAbertura ? '<div style="margin-top:4px;"><b>Problema:</b> '+descricaoAbertura+'</div>' : '')
+          + (descricaoConclusao ? '<div style="margin-top:4px;"><b>Resolução:</b> '+descricaoConclusao+'</div>' : '')
+          + '</div>';
+      }).join('');
+
+      body.querySelectorAll('.mh-item').forEach(function(el){
+        el.addEventListener('click', function(){
+          closeModal('modalMaquinaHistorico');
+          openHistoryModal(el.dataset.id);
+        });
+      });
+
+      openModal('modalMaquinaHistorico');
     }
 
     function renderMecanicosDesempenho(){
