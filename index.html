@@ -954,7 +954,10 @@
     <div class="modal" style="max-width:560px;">
       <h3 id="historicoTitle">Histórico do Chamado</h3>
       <div id="historicoBody"></div>
-      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modalHistorico')">Fechar</button></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btnVoltarHistoricoMaquina" style="display:none;">Voltar</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalHistorico')">Fechar</button>
+      </div>
     </div>
   </div>
 
@@ -2154,7 +2157,7 @@
       return status !== 'Concluído' && ['responsavel','mecanico'].indexOf(meuPerfil.papel) !== -1;
     }
 
-    function openHistoryModal(ticketId, allowEdit){
+    function openHistoryModal(ticketId, allowEdit, vindoDeMaquina){
       const t = state.tickets.find(function(x){ return x.ID === ticketId; });
       if(!t) return;
       const machine = state.machines.find(function(m){ return m.ID === t.Maquina; }) || {};
@@ -2288,6 +2291,15 @@
 
       if(podeEditar) wireAtualizacaoForm_(t.ID);
       if(souResponsavel) wireAcoesAdmin_(t);
+
+      const btnVoltar = document.getElementById('btnVoltarHistoricoMaquina');
+      if(vindoDeMaquina){
+        btnVoltar.style.display = '';
+        btnVoltar.onclick = function(){ closeModal('modalHistorico'); openMaquinaHistoricoModal(vindoDeMaquina); };
+      } else {
+        btnVoltar.style.display = 'none';
+      }
+
       openModal('modalHistorico');
     }
 
@@ -2679,7 +2691,7 @@
       body.querySelectorAll('.mh-item').forEach(function(el){
         el.addEventListener('click', function(){
           closeModal('modalMaquinaHistorico');
-          openHistoryModal(el.dataset.id);
+          openHistoryModal(el.dataset.id, false, maquinaId);
         });
       });
 
